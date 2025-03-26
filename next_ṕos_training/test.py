@@ -1,33 +1,42 @@
-
-import math
-import random
 from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from dataset import BallTrajectoryDataset
+from network import LSTMNetwork
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-full_dataset = BallTrajectoryDataset(noise_std=0.0)
+full_dataset = BallTrajectoryDataset()
 
-while True:
-    full_dataset.plot_sample()
+# while True:
+#     full_dataset.plot_sample()
 
-# val_loader = DataLoader(full_dataset, batch_size=1, shuffle=True)
+val_loader = DataLoader(full_dataset, batch_size=1, shuffle=True)
 
 # model = torch.load("models/2025-03-22T06:02:16.740506/model.pth").to(device)
-# criterion = nn.MSELoss()
-# model.eval()
-# with torch.no_grad():
-#     val_loss = 0
-#     for val_batch_idx, (past_positions, future_positions) in enumerate(val_loader):
-#         past_positions, future_positions = past_positions.to(device), future_positions.to(device)
+model = LSTMNetwork().to(device)
+
+criterion = nn.MSELoss()
+model.eval()
+with torch.no_grad():
+    val_loss = 0
+    for val_batch_idx, (past_positions, future_positions) in enumerate(val_loader):
+        past_positions, future_positions = past_positions.to(device), future_positions.to(device)
+
+        target_size = future_positions.shape[1]
+
+        outputs = model(past_positions, target_size)
+
+        print(f'target -> {future_positions.shape}')
+
+        print(f'outputs -> {outputs.shape}')
+
+        # print(f'outputs -> {outputs.shape}')
 
 
-        # outputs = model(past_positions)
         # loss = criterion(outputs, future_positions)
         # val_loss = loss.item()
 

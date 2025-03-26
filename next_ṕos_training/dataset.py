@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=5, output_positions_quantity:int=1, noise_std:float=0.05):
+    def __init__(self, input_positions_quantity:int=5, output_positions_quantity:int=1, noise_std:float=0.001):
         self.data = []
 
         self.noise_std = noise_std
@@ -24,12 +24,12 @@ class BallTrajectoryDataset(Dataset):
 
                 for i in range(len_seq - (input_positions_quantity + output_positions_quantity)):
                     input_positions = seq[i:i+input_positions_quantity]
-                    output_positions = seq[i+input_positions_quantity:i+input_positions_quantity+output_positions_quantity]
+                    output_positions = seq[i+input_positions_quantity:]
 
                     initial_pos = input_positions[0][0]
 
                     input_positions = [
-                        (pos[0][0] - initial_pos[0], pos[0][2] - initial_pos[2], int(pos[1]))
+                        (pos[0][0] - initial_pos[0], pos[0][2] - initial_pos[2])
                         for pos in input_positions
                     ]
 
@@ -47,10 +47,10 @@ class BallTrajectoryDataset(Dataset):
 
     
     '''
-        A -> fB  | fC -> print(f)B | print(f)C 
+        A -> fB  | fC -> append(f)B | append(f)C 
         B -> tB | D 
         C -> fC | D
-        D -> f -> print(f)
+        D -> f -> append(f)
     '''
 
     def split_into_sequences(self, trajectory):
