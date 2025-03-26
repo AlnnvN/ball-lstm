@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset
 
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=10, output_positions_quantity:int=100, noise_std:float=0.05):
+    def __init__(self, input_positions_quantity:int=25, output_positions_quantity:int=100, noise_std:float=0.05):
         self.data = []
 
         self.noise_std = noise_std
@@ -24,11 +24,18 @@ class BallTrajectoryDataset(Dataset):
                 elif len(output_positions) < output_positions_quantity:
                     output_positions += [output_positions[-1]] * (output_positions_quantity - len(output_positions))
 
-                #removes y-axis (not used) and flattens the tuple to a 1 dim list
-                input_positions = [(pos[0][0], pos[0][2], int(pos[1])) for pos in input_positions]
+                input_positions = [
+                    (pos[0][0] - input_positions[0][0][0], pos[0][2], int(pos[1]))
+                    for pos in input_positions
+                ]
 
-                #removes y-axis (not used) and flying flag from output
-                output_positions = [(pos[0][0], pos[0][2]) for pos in output_positions]
+                output_positions = [
+                    (pos[0][0] - output_positions[0][0][0], pos[0][2]) 
+                    for pos in output_positions
+                ]
+
+                input_positions = np.round(input_positions, 3)
+                output_positions = np.round(output_positions, 3)
 
                 self.data.append(
                     (np.array(input_positions, dtype=np.float32), 
