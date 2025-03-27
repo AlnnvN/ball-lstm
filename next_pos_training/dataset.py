@@ -142,18 +142,14 @@ class BallTrajectoryDataset(Dataset):
 
         input_x = input_positions[:, 0]
         input_y = input_positions[:, 1]
-        input_flying = input_positions[:, 2]
 
         output_x = output_positions[:, 0]
         output_y = output_positions[:, 1]
 
         plt.figure(figsize=(8, 6))
 
-        plt.scatter(input_x[input_flying == 0], input_y[input_flying == 0], 
+        plt.scatter(input_x, input_y, 
                     c='blue', s=80, label='Input Ground (False)')
-
-        plt.scatter(input_x[input_flying == 1], input_y[input_flying == 1], 
-                    c='red', s=80, label='Input Flying (True)')
 
         plt.scatter(output_x, output_y, c='green', s=80, label='Output')
 

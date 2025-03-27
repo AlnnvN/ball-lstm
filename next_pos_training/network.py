@@ -13,22 +13,30 @@ class LSTMNetwork(nn.Module):
 
         self.relu = nn.LeakyReLU()
 
-    def __forward_once(self, x):
+    def forward_once(self, x):
         x, _ = self.lstm(x)
         x = x[:, -1, :]
 
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
 
-        return torch.abs(x).view(-1, self.output_size, 2)
+        return x.view(-1, self.output_size, 2)
 
     def forward(self, x, time):
         batch_size = x.shape[0]
 
         output_seq = torch.zeros(batch_size, 0, 2, device=x.device)
 
+        # print(f'first forward')
+
+        # print(f'time -> {time}')
+
         for _ in range(time):
-            output = self.__forward_once(x)
+            # print(x)
+
+            output = self.forward_once(x)
+
+            # print(f'saida rede -> {output}')
 
             output_seq = torch.cat((output_seq, output), dim=1)
 
