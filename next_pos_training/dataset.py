@@ -4,12 +4,13 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 
-
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=5, output_positions_quantity:int=1, noise_std:float=0.001):
+    def __init__(self, input_positions_quantity:int=15, output_positions_quantity:int=1, noise_std:float=0.05, next_pos=True, using_velocity=True):
         self.data = []
 
         self.noise_std = noise_std
+
+        self.using_velocity = using_velocity
 
         raw_dataset = np.load("../raw_dataset/ball_dataset.npy", allow_pickle=True)
         for trajectory in raw_dataset:
@@ -24,7 +25,7 @@ class BallTrajectoryDataset(Dataset):
 
                 for i in range(len_seq - (input_positions_quantity + output_positions_quantity)):
                     input_positions = seq[i:i+input_positions_quantity]
-                    output_positions = seq[i+input_positions_quantity:]
+                    output_positions = seq[i+input_positions_quantity:i+input_positions_quantity+1] if next_pos else seq[i+input_positions_quantity:]
 
                     initial_pos = input_positions[0][0]
 
@@ -45,7 +46,6 @@ class BallTrajectoryDataset(Dataset):
                         (np.array(input_positions, dtype=np.float32),
                         np.array(output_positions, dtype=np.float32)))
 
-    
     '''
         A -> fB  | fC -> append(f)B | append(f)C 
         B -> tB | D 
@@ -100,14 +100,21 @@ class BallTrajectoryDataset(Dataset):
     
     def __getitem__(self, idx):
 
-        data = torch.tensor(self.data[idx][0])
-        label = torch.tensor(self.data[idx][1])
+        data = torch.tensor(self.data[idx][0], dtype=torch.float32)
+        label = torch.tensor(self.data[idx][1], dtype=torch.float32)
     
         # applies noise only on input position, not on flying flag
         noise = torch.randn_like(data[:, :2]) * self.noise_std
         
         noisy_data = data.clone()
         noisy_data[:, :2] += noise
+
+        # appends velocity
+        if self.using_velocity:
+            velocity = torch.zeros_like(noisy_data[:, :2])
+            velocity[:-1] = noisy_data[1:, :2] - noisy_data[:-1, :2]
+            velocity[-1] = velocity[-2]
+            noisy_data = torch.cat([noisy_data, velocity], dim=1)
 
         return noisy_data, label
     

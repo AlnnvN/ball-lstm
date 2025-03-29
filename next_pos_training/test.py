@@ -5,69 +5,60 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from dataset import BallTrajectoryDataset
 from network import LSTMNetwork
-from torch.nn.utils.rnn import pad_sequence
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-full_dataset = BallTrajectoryDataset()
+model_folder = "2025-03-29T04:23:45.364335"
 
-# while True:
-#     full_dataset.plot_sample()
+model_name = "model_epoch_200.pth"
 
-def collate_fn(batch):
-    past_positions, future_positions = zip(*batch)
+state_dict = torch.load(f"models/{model_folder}/{model_name}", map_location=device, weights_only=True)
 
-    past_positions = [seq.clone().detach().float() for seq in past_positions]
-    future_positions = [seq.clone().detach().float() for seq in future_positions]
+with open(f"models/{model_folder}/parameters.json", "r", encoding="utf-8") as file:
+    dados = json.load(file)
 
-    future_positions_padded = pad_sequence(future_positions, batch_first=True)
-    original_lengths = torch.tensor([seq.shape[0] for seq in future_positions], dtype=torch.long)
-    past_positions = torch.stack(past_positions)
+model = LSTMNetwork(using_velocity=dados['using_velocity'])
+model.load_state_dict(state_dict)
+model = model.to(device)
 
-    return past_positions, future_positions_padded, original_lengths
+full_dataset = BallTrajectoryDataset(
+    input_positions_quantity=dados['input_positions_quantity'], 
+    next_pos=False, 
+    noise_std=0.05,
+    using_velocity=dados['using_velocity']
+)
 
-val_loader = DataLoader(full_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)
-
-
-model = torch.load("models/2025-03-27T02:25:53.020733/model.pth").to(device)
-model = LSTMNetwork().to(device)
+val_loader = DataLoader(full_dataset, batch_size=1, shuffle=True)
 
 criterion = nn.MSELoss()
 model.eval()
 with torch.no_grad():
     val_loss = 0
-    for val_batch_idx, (past_positions, future_positions, original_lengths) in enumerate(val_loader):
+    for val_batch_idx, (past_positions, future_positions) in enumerate(val_loader):
         past_positions, future_positions = past_positions.to(device), future_positions.to(device)
-
-        original_lengths = original_lengths.to(device)
 
         target_size = future_positions.shape[1]
 
         outputs = model(past_positions, target_size)
 
-        mask = torch.arange(target_size, device=device).expand(len(original_lengths), target_size) < original_lengths.unsqueeze(1)
-
-        outputs_masked = outputs[mask]
-
-        future_positions_masked = future_positions[mask]
-
-        loss = criterion(outputs_masked, future_positions_masked)
+        loss = criterion(outputs, future_positions)
         val_loss = loss.item()
 
-        future_positions_masked = future_positions_masked.cpu().numpy()
-        outputs_masked = outputs_masked.cpu().numpy()
+        future_positions = future_positions.cpu().numpy()
+        outputs = outputs.cpu().numpy()
 
-        print(f'target shape -> {future_positions_masked.shape}')
-        print(f'output shape -> {outputs_masked.shape}')
+        print(f'target shape -> {future_positions.shape}')
+        print(f'output shape -> {outputs.shape}')
 
         validation_log = f"Validation Loss: {val_loss:.4f}, SqRtLoss: {math.sqrt(val_loss):.4f}"
         print(validation_log)
 
         plt.figure(figsize=(6, 6))
 
-        plt.plot(future_positions_masked[:, 0].T, future_positions_masked[:, 1].T, 'bo-', alpha=0.5, label="ground-truth")
-        plt.plot(outputs_masked[:, 0].T, outputs_masked[:, 1].T, 'ro--', alpha=0.5, label="prediction")
+        plt.plot(future_positions[:, :, 0].T, future_positions[:, :, 1].T, 'bo-', alpha=0.5, label="ground-truth")
+        plt.plot(outputs[:, :, 0].T, outputs[:, :, 1].T, 'ro--', alpha=0.5, label="prediction")
 
         plt.xlabel("Posição X")
         plt.ylabel("Posição Y")
