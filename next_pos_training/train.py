@@ -17,16 +17,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 batch_size = 16
-num_epochs = 250
-learning_rate = 1e-4
+num_epochs = 400
+learning_rate = 1e-3
 weight_decay = 1e-5
-input_positions_quantity = 25
+input_positions_quantity = 15
 noise_std = 0.05
-using_velocity = False
+using_velocity = True
 
 init_iso_format_time = datetime.now().isoformat()
 model_path = f'models/{init_iso_format_time}'
 os.makedirs(model_path)
+os.makedirs(f'{model_path}/models')
 log_file = open(f"{model_path}/output.log", "w")
 shutil.copy("network.py", model_path)
 
@@ -59,6 +60,8 @@ train_loader = DataLoader(full_dataset, batch_size=batch_size, sampler=train_sam
 val_loader = DataLoader(full_dataset_noiseless, batch_size=batch_size, sampler=val_sampler)
 
 print('Loaded dataset')
+print(f"Train size -> {len(train_loader.sampler)}")
+print(f"Validation size -> {len(val_loader.sampler)}")
 
 model = LSTMNetwork(using_velocity=using_velocity).to(device)
 criterion = nn.SmoothL1Loss()
@@ -110,7 +113,7 @@ try:
         
         # scheduler.step() 
         
-        torch.save(model.state_dict(), f"{model_path}/model_epoch_{epoch+1}.pth")
+        torch.save(model.state_dict(), f"{model_path}/models/model_epoch_{epoch+1}.pth")
 except KeyboardInterrupt:
     print("Finishing")
 

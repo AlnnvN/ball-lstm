@@ -4,10 +4,28 @@ from bahiart_gym.manager import Manager
 import numpy as np
 import math
 
+train_and_validation_dataset_config = {
+    "max_angle": 60,
+    "angle_step": 4,
+    "max_power": 23,
+    "min_power": 3,
+    "power_step": 4
+} #96 
+
+test_dataset_config = {
+    "max_angle": 60,
+    "angle_step": 3,
+    "max_power": 23,
+    "min_power": 2,
+    "power_step": 3
+} #168
+
 class GatherBallDataset(BaseEnvironment):
     def __init__(self, monitor_port: int = 3200, connection_timeout_seconds: int = 60):
         
         self.manager = Manager(sleep_between_processes=0.1)
+
+        chosen_dataset = test_dataset_config
 
         self.positions: list = []
         self.ball_motion: dict = []
@@ -20,15 +38,15 @@ class GatherBallDataset(BaseEnvironment):
         self.minimum_motion: int = 20
         self.ball_start_position: list = [-14.5, 0, 0.040]
 
-        self.max_angle: float = 60
+        self.max_angle: float = chosen_dataset['max_angle']
         self.current_angle: float = 0
-        self.angle_step: float = 5 #5
-    
-        self.max_power: float = 23
-        self.min_power: float = 3
+        self.angle_step: float = chosen_dataset['angle_step']
+
+        self.max_power: float = chosen_dataset['max_power']
+        self.min_power: float = chosen_dataset['min_power']
         self.current_power: float = self.min_power
         self.power_range: float = self.max_power - self.min_power
-        self.power_step: float = 5 #5
+        self.power_step: float = chosen_dataset['power_step']
 
         self.step: int = 0
         self.total_steps: int = int(((self.power_range / self.power_step) + 1) * ((self.max_angle / self.angle_step) + 1))
@@ -85,11 +103,6 @@ class GatherBallDataset(BaseEnvironment):
                 self.is_ball_moving = False
                 motion = [(list(np.round(np.array(cycle['position']) - np.array(self.ball_motion[0]['position']), 3)), cycle['is_flying']) for cycle in self.ball_motion]
                 self.positions.append(motion)
-
-        flying_percentage = (self.ball_is_flying.count(True) / len(self.ball_is_flying)) * 100
-
-        print(f'flying percentage -> {flying_percentage}')
-        print('aerial ball' if flying_percentage > 12.5 else 'rolling ball')
 
         self.ball_motion.clear()
         self.ball_is_flying.clear()

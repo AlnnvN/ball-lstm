@@ -11,8 +11,8 @@ class LSTMNetwork(nn.Module):
 
         feature_size = 4 if using_velocity else 2
 
-        self.lstm = nn.LSTM(feature_size, hidden_size, 4, batch_first=True, bidirectional=False)
-        self.fc1 = nn.Linear(hidden_size, hidden_size//2)
+        self.lstm = nn.LSTM(feature_size, hidden_size, 4, batch_first=True, bidirectional=True)
+        self.fc1 = nn.Linear(hidden_size*2, hidden_size//2)
         self.fc2 = nn.Linear(hidden_size//2, 2 * self.output_size)
 
         self.relu = nn.LeakyReLU()
@@ -38,11 +38,11 @@ class LSTMNetwork(nn.Module):
         output_seq = torch.zeros(batch_size, 0, 2, device=x.device)
 
         for _ in range(time):
-            print(f'x -> {x}')
+            # print(f'x -> {x}')
 
             output = self.forward_once(x)
 
-            print(f'output -> {output}')
+            # print(f'output -> {output}')
 
             if output_seq.shape[1] == 0:
                 output_seq = output
@@ -50,11 +50,11 @@ class LSTMNetwork(nn.Module):
                 diff = output - x[:, -1, :]  
                 output_seq = torch.cat((output_seq, output_seq[:, -1:, :] + diff), dim=1)
 
-            print(f'output_seq -> {output_seq}')
+            # print(f'output_seq -> {output_seq}')
 
             x = torch.cat((x[:, 1:], output), dim=1)
 
-            print(f'x concat -> {x}')
+            # print(f'x concat -> {x}')
 
             x = x - x[:, 0:1, :]
 
@@ -66,11 +66,11 @@ class LSTMNetwork(nn.Module):
         output_seq = torch.zeros(batch_size, 0, 2, device=x.device)
 
         for _ in range(time):
-            print(f'x -> {x}')
+            # print(f'x -> {x}')
 
             output = self.forward_once(x)
 
-            print(f'output -> {output}')
+            # print(f'output -> {output}')
 
             if output_seq.shape[1] == 0: #if its first prediction, retains the original value
                 velocity = output - x[:, -1, :2]
@@ -79,11 +79,11 @@ class LSTMNetwork(nn.Module):
                 diff = output - x[:, -1, :2]
                 velocity = diff
                 output_seq = torch.cat((output_seq, output_seq[:, -1:, :] + diff), dim=1)
-            print(f'output_seq -> {output_seq}')
+            # print(f'output_seq -> {output_seq}')
 
             x = torch.cat((x[:, 1:], torch.cat((output, velocity), dim=-1)), dim=1)
 
-            print(f'x concat -> {x}')
+            # print(f'x concat -> {x}')
 
             x = torch.concat((x[:, :, :2] - x[:, 0:1, :2], x[:, :, 2:]), dim=-1)
         return output_seq

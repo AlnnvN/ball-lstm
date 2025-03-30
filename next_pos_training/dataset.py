@@ -5,19 +5,24 @@ import numpy as np
 from torch.utils.data import Dataset
 
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=15, output_positions_quantity:int=1, noise_std:float=0.05, next_pos=True, using_velocity=True):
+    def __init__(self, input_positions_quantity:int=15, output_positions_quantity:int=1, noise_std:float=0.025, next_pos=True, is_test=False, using_velocity=False):
         self.data = []
 
         self.noise_std = noise_std
 
         self.using_velocity = using_velocity
 
-        raw_dataset = np.load("../raw_dataset/ball_dataset.npy", allow_pickle=True)
+        raw_dataset = np.load("../raw_dataset/ball_dataset_train_validation.npy", allow_pickle=True) if not is_test else np.load("../raw_dataset/ball_dataset_test.npy", allow_pickle=True)
         for trajectory in raw_dataset:
             sequences = self.split_into_sequences(trajectory)
 
             for seq in sequences:
+                
+                #converting dt from 0.02 to 0.04
+                seq = seq[::2]
+
                 len_seq = len(seq)
+
                 if len_seq <= (input_positions_quantity + output_positions_quantity):
                     continue
                 

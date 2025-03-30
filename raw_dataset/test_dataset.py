@@ -1,9 +1,11 @@
 from matplotlib import pyplot as plt
 import numpy as np
 
-array = np.load("ball_dataset.npy", allow_pickle=True)
+array = np.load("ball_dataset_train_validation.npy", allow_pickle=True)
 
 np.random.shuffle(array)
+
+print(f'dataset motion size -> {len(array)}')
 
 for motion in array:
     x_vals = [pos[0][0] for pos in motion]  
