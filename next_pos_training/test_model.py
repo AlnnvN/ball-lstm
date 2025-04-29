@@ -1,28 +1,38 @@
+import importlib
 import math
+import random
+import sys
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from dataset import BallTrajectoryDataset
-from network import LSTMNetwork
 import json
 
-plot_model = True
+def to_float(value):
+    return round(value.item() if isinstance(value, torch.Tensor) else value, 4)
+
+plot_model = False
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-model_folder = "2025-03-30T04:44:13.705098"
-
+model_folder = "2025-03-30T04:20:15.997370"
 model_name = "model_epoch_400.pth"
+
+sys.path.append(f'models/{model_folder}')
+
+spec = importlib.util.spec_from_file_location('network', f'models/{model_folder}/network.py')
+network = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(network)
 
 state_dict = torch.load(f"models/{model_folder}/models/{model_name}", map_location=device, weights_only=True)
 
 with open(f"models/{model_folder}/parameters.json", "r", encoding="utf-8") as file:
     dados = json.load(file)
 
-model = LSTMNetwork(using_velocity=dados['using_velocity'])
+model = network.LSTMNetwork(using_velocity=dados['using_velocity'])
 model.load_state_dict(state_dict)
 model = model.to(device)
 
@@ -140,28 +150,27 @@ else:
     median_y_error = float(np.median(y_errors))
 
     stats = {
+        "mean_sequence_loss": to_float(mean_loss),
+        "std_sequence_loss": to_float(std_loss),
+        "median_sequence_loss": to_float(median_loss),
 
-        "mean_loss": mean_loss,
-        "std_loss": std_loss,
-        "median_loss": median_loss,
+        "mean_sequence_displacement_error": to_float(mean_ade),
+        "std_sequence_displacement_error": to_float(std_ade),
+        "median_sequence_displacement_error": to_float(median_ade),
 
-        "mean_average_displacement_error": mean_ade,
-        "std_average_displacement_error": std_ade,
-        "median_average_displacement_error": median_ade,
+        "mean_final_displacement_error": to_float(mean_fde),
+        "std_final_displacement_error": to_float(std_fde),
+        "median_final_displacement_error": to_float(median_fde),
 
-        "mean_final_displacement_error": mean_fde,
-        "std_final_displacement_error": std_fde,
-        "median_final_displacement_error": median_fde,
+        "mean_x_error": to_float(mean_x_error),
+        "std_x_error": to_float(std_x_error),
+        "median_x_error": to_float(median_x_error),
 
-        "mean_x_error": mean_x_error,
-        "std_x_error": std_x_error,
-        "median_x_error": median_x_error,
+        "mean_y_error": to_float(mean_y_error),
+        "std_y_error": to_float(std_y_error),
+        "median_y_error": to_float(median_y_error),
 
-        "mean_y_error": mean_y_error,
-        "std_y_error": std_y_error,
-        "median_y_error": median_y_error,
-
-        "noise_tested_on": full_dataset.noise_std,
+        "noise_tested_on": to_float(full_dataset.noise_std),
         "loss_function": str(criterion),
         "model_name": model_name
     }
