@@ -5,8 +5,8 @@ import numpy as np
 from torch.utils.data import Dataset
 
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=15, output_positions_quantity:int=1, noise_std:float=0.025, next_pos=True, is_test=False, using_velocity=False):
-        self.data = []
+    def __init__(self, input_positions_quantity:int=15, minimum_output_positions_quantity:int=5, noise_std:float=0.025, is_test=False, using_velocity=False):
+        self.input_output_positions = []
 
         self.noise_std = noise_std
 
@@ -16,38 +16,46 @@ class BallTrajectoryDataset(Dataset):
         for trajectory in raw_dataset:
             sequences = self.split_into_sequences(trajectory)
 
+            sequences = [[pos for pos, flag in sequence] for sequence in sequences]
+
             for seq in sequences:
                 
                 #converting dt from 0.02 to 0.04
                 seq = seq[::2]
 
-                len_seq = len(seq)
+                sliding_window_size = (input_positions_quantity + minimum_output_positions_quantity)
 
-                if len_seq <= (input_positions_quantity + output_positions_quantity):
+                total_sequence_size = len(seq)
+
+                if total_sequence_size <= sliding_window_size: #if sequence does not support sliding window, it is not used.
                     continue
                 
                 # self.plot_sequence(seq)
 
-                for i in range(len_seq - (input_positions_quantity + output_positions_quantity)):
-                    input_positions = seq[i:i+input_positions_quantity]
-                    output_positions = seq[i+input_positions_quantity:i+input_positions_quantity+1] if next_pos else seq[i+input_positions_quantity:]
+                margin_to_slide = total_sequence_size - sliding_window_size
 
-                    initial_pos = input_positions[0][0]
+                for input_starting_position in range(margin_to_slide):
+                    output_starting_position = input_starting_position+input_positions_quantity
+
+                    input_positions = seq[input_starting_position:output_starting_position]
+                    output_positions = seq[output_starting_position:]
+
+                    initial_pos = input_positions[0]
 
                     input_positions = [
-                        (pos[0][0] - initial_pos[0], pos[0][2] - initial_pos[2])
+                        (pos[0] - initial_pos[0], pos[2] - initial_pos[2])
                         for pos in input_positions
                     ]
 
                     output_positions = [
-                        (pos[0][0] - initial_pos[0], pos[0][2] - initial_pos[2])
+                        (pos[0] - initial_pos[0], pos[2] - initial_pos[2])
                         for pos in output_positions
                     ]
 
                     input_positions = np.round(input_positions, 3)
                     output_positions = np.round(output_positions, 3)
 
-                    self.data.append(
+                    self.input_output_positions.append(
                         (np.array(input_positions, dtype=np.float32),
                         np.array(output_positions, dtype=np.float32)))
 
@@ -101,27 +109,27 @@ class BallTrajectoryDataset(Dataset):
         return sequences
 
     def __len__(self):
-        return len(self.data)
+        return len(self.input_output_positions)
     
     def __getitem__(self, idx):
 
-        data = torch.tensor(self.data[idx][0], dtype=torch.float32)
-        label = torch.tensor(self.data[idx][1], dtype=torch.float32)
+        input = torch.tensor(self.input_output_positions[idx][0], dtype=torch.float32)
+        raw_output = torch.tensor(self.input_output_positions[idx][1], dtype=torch.float32)
     
-        # applies noise only on input position, not on flying flag
-        noise = torch.randn_like(data[:, :2]) * self.noise_std
+        # applies noise only on input position
+        noise = torch.randn_like(input) * self.noise_std
         
-        noisy_data = data.clone()
-        noisy_data[:, :2] += noise
+        noisy_input = input.clone()
+        noisy_input += noise
 
         # appends velocity
         if self.using_velocity:
-            velocity = torch.zeros_like(noisy_data[:, :2])
-            velocity[:-1] = noisy_data[1:, :2] - noisy_data[:-1, :2]
+            velocity = torch.zeros_like(noisy_input)
+            velocity[:-1] = noisy_input[1:] - noisy_input[:-1]
             velocity[-1] = velocity[-2]
-            noisy_data = torch.cat([noisy_data, velocity], dim=1)
+            noisy_input = torch.cat([noisy_input, velocity], dim=1)
 
-        return noisy_data, label
+        return noisy_input, raw_output
     
     @staticmethod
     def plot_sequence(sequence):
@@ -170,3 +178,7 @@ class BallTrajectoryDataset(Dataset):
         plt.title("Ball Trajectory Sample")
         plt.legend()
         plt.show()
+
+if __name__ == "__main__":
+    dataset = BallTrajectoryDataset()
+    dataset.plot_sample()
