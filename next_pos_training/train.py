@@ -63,7 +63,7 @@ print('Loaded dataset')
 print(f"Train size -> {len(train_loader.sampler)}")
 print(f"Validation size -> {len(val_loader.sampler)}")
 
-model = LSTMNetwork(using_velocity=using_velocity).to(device)
+model: LSTMNetwork = LSTMNetwork(using_velocity=using_velocity).to(device)
 criterion = nn.SmoothL1Loss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=0.1)
@@ -78,7 +78,7 @@ try:
         for batch_idx, (past_positions, future_positions) in enumerate(train_loader):
             past_positions, future_positions = past_positions.to(device), future_positions.to(device)
 
-            outputs = model.forward_once(past_positions)
+            outputs = model.forward_autoregressive(past=past_positions, future_gt=future_positions)
             loss = criterion(outputs, future_positions)
 
             optimizer.zero_grad()
@@ -100,7 +100,7 @@ try:
         with torch.no_grad():
             for batch_idx, (past_positions, future_positions) in enumerate(val_loader):
                 past_positions, future_positions = past_positions.to(device), future_positions.to(device)
-                outputs = model.forward_once(past_positions)
+                outputs = model.forward_autoregressive(past=past_positions, future_gt=future_positions)
                 loss = criterion(outputs, future_positions)
                 running_val_loss += loss.item()
         

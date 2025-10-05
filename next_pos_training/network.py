@@ -17,12 +17,16 @@ class LSTMNetwork(nn.Module):
 
         self.relu = nn.LeakyReLU()
 
-    def forward_autoregressive(self, past, future_len, teacher_forcing_ratio=0.5, future_gt=None):
+    def forward_autoregressive(self, past, future_len=1, teacher_forcing_ratio=0.5, future_gt=None):
         # Encode past sequence
         _, (h, c) = self.lstm(past)
         # initial input = last past step
         input_t = past[:, -1, :2] if not self.using_velocity else past[:, -1, :]
         outputs = []
+
+        if self.training:
+            future_len = future_gt.shape[1]
+
         for t in range(future_len):
             # run one step
             out_lstm, (h, c) = self.lstm(input_t.unsqueeze(1), (h, c))
