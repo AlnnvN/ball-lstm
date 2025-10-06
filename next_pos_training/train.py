@@ -18,11 +18,12 @@ print(device)
 
 batch_size = 16
 num_epochs = 400
-learning_rate = 1e-3
+learning_rate = 1e-4
 weight_decay = 1e-5
 input_positions_quantity = 15
+output_positions_quantity = 1
 noise_std = 0.05
-using_velocity = True
+using_velocity = False
 
 init_iso_format_time = datetime.now().isoformat()
 model_path = f'models/{init_iso_format_time}'
@@ -38,12 +39,13 @@ with open(f"{model_path}/parameters.json", "w") as f:
         'learning_rate': learning_rate,
         'weight_decay': weight_decay,
         'input_positions_quantity': input_positions_quantity,
+        'output_positions_quantity': output_positions_quantity,
         'noise_std': noise_std,
         'using_velocity': using_velocity
     }, f, indent=4)
 
-full_dataset = BallTrajectoryDataset(input_positions_quantity=input_positions_quantity, noise_std=noise_std, using_velocity=using_velocity)
-full_dataset_noiseless = BallTrajectoryDataset(input_positions_quantity=input_positions_quantity, noise_std=0.0, using_velocity=using_velocity)
+full_dataset = BallTrajectoryDataset(input_positions_quantity=input_positions_quantity, output_positions_quantity=output_positions_quantity, noise_std=noise_std, using_velocity=using_velocity)
+full_dataset_noiseless = BallTrajectoryDataset(input_positions_quantity=input_positions_quantity, output_positions_quantity=output_positions_quantity, noise_std=0.0, using_velocity=using_velocity)
 
 total_size = len(full_dataset)
 indices = list(range(total_size))
@@ -63,7 +65,7 @@ print('Loaded dataset')
 print(f"Train size -> {len(train_loader.sampler)}")
 print(f"Validation size -> {len(val_loader.sampler)}")
 
-model: LSTMNetwork = LSTMNetwork(using_velocity=using_velocity).to(device)
+model: LSTMNetwork = LSTMNetwork(training=True, using_velocity=using_velocity).to(device)
 criterion = nn.SmoothL1Loss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=25, gamma=0.1)
@@ -78,7 +80,7 @@ try:
         for batch_idx, (past_positions, future_positions) in enumerate(train_loader):
             past_positions, future_positions = past_positions.to(device), future_positions.to(device)
 
-            outputs = model.forward_autoregressive(past=past_positions, future_gt=future_positions)
+            outputs = model.forward_autoregressive(past=past_positions, future_gt=future_positions, teacher_forcing_ratio=0)
             loss = criterion(outputs, future_positions)
 
             optimizer.zero_grad()

@@ -13,13 +13,13 @@ import json
 def to_float(value):
     return round(value.item() if isinstance(value, torch.Tensor) else value, 4)
 
-plot_model = False
+plot_model = True
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-model_folder = "2025-03-30T04:20:15.997370"
-model_name = "model_epoch_400.pth"
+model_folder = "2025-10-06T00:48:12.076309"
+model_name = "model_epoch_110.pth"
 
 sys.path.append(f'models/{model_folder}')
 
@@ -38,7 +38,7 @@ model = model.to(device)
 
 full_dataset = BallTrajectoryDataset(
     input_positions_quantity=dados['input_positions_quantity'], 
-    next_pos=False, 
+    full_trajectory=True, 
     noise_std=0.01,
     is_test=True,
     using_velocity=dados['using_velocity']
@@ -57,7 +57,7 @@ if plot_model:
 
             target_size = future_positions.shape[1]
 
-            outputs = model(past_positions, target_size)
+            outputs = model.forward_autoregressive(past=past_positions, future_len=future_positions.shape[1])
 
             loss = criterion(outputs, future_positions)
             val_loss = loss.item()
@@ -98,7 +98,7 @@ else:
         for past_positions, future_positions in val_loader:
             past_positions, future_positions = past_positions.to(device), future_positions.to(device)
             target_size = future_positions.shape[1]
-            outputs = model(past_positions, target_size)
+            outputs = model.forward_autoregressive(past=past_positions, future_len=future_positions.shape[1])
 
             # Compute the loss
             loss = criterion(outputs, future_positions)

@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 
 class BallTrajectoryDataset(Dataset):
-    def __init__(self, input_positions_quantity:int=15, minimum_output_positions_quantity:int=5, noise_std:float=0.025, is_test=False, using_velocity=False):
+    def __init__(self, input_positions_quantity:int=15, output_positions_quantity:int=15, noise_std:float=0.025, is_test=False, using_velocity=False, full_trajectory=False):
         self.input_output_positions = []
 
         self.noise_std = noise_std
@@ -23,7 +23,7 @@ class BallTrajectoryDataset(Dataset):
                 #converting dt from 0.02 to 0.04
                 seq = seq[::2]
 
-                sliding_window_size = (input_positions_quantity + minimum_output_positions_quantity)
+                sliding_window_size = (input_positions_quantity + output_positions_quantity)
 
                 total_sequence_size = len(seq)
 
@@ -38,7 +38,11 @@ class BallTrajectoryDataset(Dataset):
                     output_starting_position = input_starting_position+input_positions_quantity
 
                     input_positions = seq[input_starting_position:output_starting_position]
-                    output_positions = seq[output_starting_position:]
+
+                    if full_trajectory:
+                        output_positions = seq[output_starting_position:]
+                    else:
+                        output_positions = seq[output_starting_position:output_starting_position+output_positions_quantity]
 
                     initial_pos = input_positions[0]
 

@@ -2,8 +2,10 @@ import torch
 import torch.nn as nn
 
 class LSTMNetwork(nn.Module):
-    def __init__(self, output_size=1, hidden_size=32, using_velocity=True):
+    def __init__(self, output_size=1, hidden_size=32, training=False, using_velocity=True):
         super(LSTMNetwork, self).__init__()
+
+        self.training = training
 
         self.output_size = output_size
 
@@ -18,40 +20,40 @@ class LSTMNetwork(nn.Module):
         self.relu = nn.LeakyReLU()
 
     def forward_autoregressive(self, past, future_len=1, teacher_forcing_ratio=0.5, future_gt=None):
-        # Encode past sequence
         _, (h, c) = self.lstm(past)
-        # initial input = last past step
-        input_t = past[:, -1, :2] if not self.using_velocity else past[:, -1, :]
-        outputs = []
 
-        if self.training:
+        input_t = past[:, -1, :2]
+        outputs = torch.zeros(past.size(0), 0, 2, device=past.device)
+
+        if future_gt is not None:
             future_len = future_gt.shape[1]
 
         for t in range(future_len):
-            # run one step
             out_lstm, (h, c) = self.lstm(input_t.unsqueeze(1), (h, c))
-
             pred = self.fc2(self.relu(self.fc1(out_lstm.squeeze(1))))
-            pred = pred.view(-1, self.output_size, 2)
+            pred = pred.view(-1, 1, 2)  # apenas um passo por vez
 
-            outputs.append(pred)
+            if outputs.shape[1] == 0:
+                outputs = pred
+            else:
+                diff = pred - past[:, -1:, :]  # deslocamento
+                outputs = torch.cat((outputs, outputs[:, -1:, :] + diff), dim=1)
 
             # decide teacher forcing
             if self.training and future_gt is not None and torch.rand(1) < teacher_forcing_ratio:
-                next_input = future_gt[:, t:t+1, :]  # ground truth step
+                next_input = future_gt[:, t, :].unsqueeze(1)
             else:
                 next_input = pred
 
-            # construct full feature for next step
-            if self.using_velocity:
-                vel = next_input - (past[:, -1:, :2] if len(outputs)==1 else outputs[-2])
-                input_t = torch.cat((next_input.squeeze(1), vel.squeeze(1)), dim=-1)
-            else:
-                input_t = next_input.squeeze(1)
-                
-            # shift past window
-            past = torch.cat((past[:, 1:], torch.cat((next_input, vel.unsqueeze(1) if self.using_velocity else next_input), dim=-1)), dim=1)
-        return torch.cat(outputs, dim=1)
+            # atualiza janela e normaliza
+            past = torch.cat((past[:, 1:], next_input), dim=1)
+            past = past - past[:, 0:1, :]
+            input_t = next_input.squeeze(1)
+
+        return outputs
+
+
+
 
     def forward(self, x, time):
         if self.using_velocity:
@@ -63,6 +65,8 @@ class LSTMNetwork(nn.Module):
         batch_size = x.shape[0]
         
         output_seq = torch.zeros(batch_size, 0, 2, device=x.device)
+
+        _, (h, c) = self.lstm(past)
 
         for _ in range(time):
             # print(f'x -> {x}')
